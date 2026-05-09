@@ -1,0 +1,14 @@
+{
+  "name": "PromoHunter MY",
+  "description": "Discover, search, and track the best giveaways, contests, and promotions in Malaysia. Features AI-powered promo extraction and expiry reminders.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "AI-powered extraction",
+    "PWA support",
+    "Admin dashboard",
+    "Real-time notifications"
+  ]
+}
