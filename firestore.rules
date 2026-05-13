@@ -48,7 +48,8 @@ service cloud.firestore {
     // Promos
     match /promos/{promoId} {
       allow get: if true;
-      allow list: if true; // In production, we filter by status == 'Approved'
+      allow list: if true; 
+      allow create: if isSignedIn();
       allow write: if isAdmin();
     }
 
@@ -81,6 +82,11 @@ service cloud.firestore {
       allow create: if isSignedIn() && (incoming().userId == request.auth.uid || isAdmin());
       allow update: if isAdmin(); // Only admins can update status from 'Entered' to 'Completed' etc.
       allow delete: if isAdmin();
+    }
+
+    // User Preferences
+    match /user_preferences/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
 
     // Notifications

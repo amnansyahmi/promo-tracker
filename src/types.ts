@@ -52,10 +52,13 @@ export interface Promo {
   sourceUrl?: string;
   sourceName?: string;
   imageUrl?: string;
+  imageUrls?: string[];
+  qrCodeData?: string;
   startDate?: string | null;
   endDate?: string | null;
   expiryStatus: ExpiryStatus;
   rewardTitle?: string;
+  prizes?: string[];
   rewardValue?: string;
   rewardDescription?: string;
   requiredSpendAmount?: string;

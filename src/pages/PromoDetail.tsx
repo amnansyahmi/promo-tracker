@@ -18,14 +18,17 @@ import {
   Lightbulb,
   CheckCircle2,
   Info,
-  CheckCircle
+  CheckCircle,
+  MessageCircle,
+  Trash2,
+  Edit
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function PromoDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [promo, setPromo] = useState<Promo | null>(null);
   const [isSaved, setIsSaved] = useState(false);
   const [hasEntered, setHasEntered] = useState(false);
@@ -120,7 +123,7 @@ export default function PromoDetail() {
         const newSave: SavedPromo = {
           userId: user.uid,
           promoId: id,
-          createdAt: new Date().toISOString()
+          savedAt: new Date().toISOString()
         };
         await setDoc(doc(db, 'saved_promos', saveId), newSave);
         setIsSaved(true);
@@ -131,24 +134,81 @@ export default function PromoDetail() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!user || user.uid !== promo.createdByUserId) return;
+    if (confirm("Are you sure you want to delete this promo?")) {
+      try {
+        await deleteDoc(doc(db, 'promos', promo.id));
+        toast.success("Promo deleted");
+        navigate(-1);
+      } catch (err) {
+        toast.error("Failed to delete");
+      }
+    }
+  };
+
   if (loading) return <div className="h-screen flex items-center justify-center">Loading...</div>;
   if (!promo) return null;
 
   return (
     <div className="max-w-md mx-auto pb-24 bg-white min-h-screen animate-in slide-in-from-bottom-5 duration-500">
       <div className="relative">
-        <img 
-          src={promo.imageUrl || 'https://placehold.co/600x400/1e293b/ffffff?text=' + encodeURIComponent(promo.brandName)} 
-          className="w-full h-80 object-cover"
-          alt={promo.title}
-        />
+        <div className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide h-80">
+          {(promo.imageUrls && promo.imageUrls.length > 0) ? (
+            promo.imageUrls.map((imgUrl, idx) => (
+              <img 
+                key={idx}
+                src={imgUrl} 
+                className="w-full h-full object-cover flex-shrink-0 snap-center"
+                alt={`${promo.title} - ${idx + 1}`}
+              />
+            ))
+          ) : (
+            <img 
+              src={promo.imageUrl || 'https://placehold.co/600x400/1e293b/ffffff?text=' + encodeURIComponent(promo.brandName)} 
+              className="w-full h-full object-cover flex-shrink-0 snap-center"
+              alt={promo.title}
+            />
+          )}
+        </div>
+        {(promo.imageUrls && promo.imageUrls.length > 1) && (
+          <div className="absolute bottom-10 left-0 right-0 flex justify-center space-x-1">
+            {promo.imageUrls.map((_, idx) => (
+              <div key={idx} className="w-1.5 h-1.5 rounded-full bg-white/50" />
+            ))}
+          </div>
+        )}
         <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
           <Button variant="secondary" size="icon" className="rounded-full bg-white/80 backdrop-blur shadow-lg border-none hover:bg-white" onClick={() => navigate(-1)}>
             <ChevronLeft size={20} className="text-slate-900" />
           </Button>
           <div className="flex space-x-2">
-            <Button variant="secondary" size="icon" className="rounded-full bg-white/80 backdrop-blur shadow-lg border-none hover:bg-white text-slate-900" onClick={() => {
-              navigator.share?.({ title: promo.title, url: window.location.href });
+            {user && (user.uid === promo.createdByUserId || isAdmin) && (
+              <>
+                <Button variant="secondary" size="icon" className="rounded-full bg-white/80 text-blue-500 shadow-lg border-none hover:bg-blue-50" onClick={() => navigate(`/edit/${promo.id}`)}>
+                  <Edit size={20} />
+                </Button>
+                <Button variant="secondary" size="icon" className="rounded-full bg-white/80 text-rose-500 shadow-lg border-none hover:bg-rose-50" onClick={handleDelete}>
+                  <Trash2 size={20} />
+                </Button>
+              </>
+            )}
+            <Button variant="secondary" size="icon" className="rounded-full bg-[#25D366] text-white shadow-lg border-none hover:bg-[#128C7E]" onClick={() => {
+              const text = encodeURIComponent(`Check out this promo: ${promo.title}\n\n${window.location.href}`);
+              window.open(`https://wa.me/?text=${text}`, '_blank');
+            }}>
+              <MessageCircle size={20} />
+            </Button>
+            <Button variant="secondary" size="icon" className="rounded-full bg-white/80 backdrop-blur shadow-lg border-none hover:bg-white text-slate-900" onClick={async () => {
+              try {
+                if (navigator.share) {
+                  await navigator.share({ title: promo.title, url: window.location.href });
+                }
+              } catch (err: any) {
+                if (err.name !== 'AbortError') {
+                  console.error('Share failed:', err.message);
+                }
+              }
             }}>
               <Share2 size={20} />
             </Button>
@@ -182,24 +242,93 @@ export default function PromoDetail() {
         <h1 className="text-2xl font-bold text-slate-900 leading-tight mb-2 tracking-tight">{promo.title}</h1>
         <p className="text-slate-500 font-medium mb-6">by <span className="text-slate-900 font-bold">{promo.brandName}</span></p>
 
-        <div className="grid grid-cols-2 gap-4 mb-8">
-          <Card className="bg-slate-50 border border-slate-100 shadow-sm rounded-2xl p-4 transition-colors hover:border-slate-200">
-            <div className="flex items-center text-slate-500 text-xs mb-1 font-medium">
-              <Calendar size={14} className="mr-1" /> Expiry Date
-            </div>
-            <div className="font-bold text-slate-900">
-              {promo.endDate ? new Date(promo.endDate).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Unknown'}
-            </div>
-          </Card>
-          <Card className="bg-slate-50 border border-slate-100 shadow-sm rounded-2xl p-4 transition-colors hover:border-slate-200">
-            <div className="flex items-center text-slate-500 text-xs mb-1 font-medium">
-              <AlertCircle size={14} className="mr-1" /> Reward
-            </div>
-            <div className="font-bold text-slate-900 truncate">
-              {promo.rewardTitle || 'Various'}
-            </div>
-          </Card>
-        </div>
+          <div className="flex gap-2 mb-8">
+            <Card className="flex-1 bg-slate-50 border border-slate-100 shadow-sm rounded-2xl p-4 transition-colors hover:border-slate-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center text-slate-500 text-xs mb-1 font-medium">
+                    <Calendar size={14} className="mr-1" /> Expiry Date
+                  </div>
+                  <div className="font-bold text-slate-900">
+                    {promo.endDate ? new Date(promo.endDate).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Unknown'}
+                  </div>
+                </div>
+                {promo.endDate && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-xs text-blue-600 font-bold bg-blue-50 hover:bg-blue-100 rounded-lg"
+                    onClick={() => {
+                      const startDate = new Date(promo.endDate!);
+                      // Ensure date is a valid object
+                      if (isNaN(startDate.getTime())) {
+                        toast.error("Invalid expiry date");
+                        return;
+                      }
+
+                      // Set event to last all day or a specific time. Let's make it an all-day event for the expiry date to remind them to use it
+                      const startStr = startDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+                      const endStr = new Date(startDate.getTime() + 24 * 60 * 60 * 1000).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+                      
+                      const icsContent = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PromoHunter MY//Calendar Event//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+SUMMARY:Promo Expiring: ${promo.title || promo.brandName}
+DTSTART:${startStr}
+DTEND:${endStr}
+DESCRIPTION:Don't forget to use your ${promo.brandName} promo! Link: ${window.location.href}
+STATUS:CONFIRMED
+SEQUENCE:0
+BEGIN:VALARM
+TRIGGER:-PT24H
+DESCRIPTION:Reminder
+ACTION:DISPLAY
+END:VALARM
+END:VEVENT
+END:VCALENDAR`;
+                       const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+                       const url = window.URL.createObjectURL(blob);
+                       const a = document.createElement('a');
+                       a.href = url;
+                       a.download = `promo_${promo.id}_expiry.ics`;
+                       document.body.appendChild(a);
+                       a.click();
+                       document.body.removeChild(a);
+                       window.URL.revokeObjectURL(url);
+                       toast.success('Added reminder to your calendar!');
+                    }}
+                  >
+                    Add to Calendar
+                  </Button>
+                )}
+              </div>
+            </Card>
+          </div>
+          <div className="mb-8">
+            <Card className="bg-gradient-to-br from-yellow-500 to-amber-600 border-none shadow-md shadow-amber-200/50 rounded-2xl p-6 transition-all hover:shadow-lg text-white">
+              <div className="flex items-center text-amber-100 text-sm mb-2 font-semibold uppercase tracking-wider">
+                <AlertCircle size={16} className="mr-2" /> Reward
+              </div>
+              <div className="font-extrabold text-3xl leading-tight drop-shadow-sm mb-4">
+                {promo.rewardTitle || 'Various'}
+              </div>
+              {promo.prizes && promo.prizes.length > 0 && promo.prizes.some(p => p.trim()) && (
+                <div className="bg-white/10 rounded-xl p-4 mt-2">
+                  <p className="text-amber-100 text-xs font-bold uppercase mb-2">Prize List</p>
+                  <ul className="space-y-2 text-sm max-w-full">
+                    {promo.prizes.filter(p => p.trim()).map((prize, idx) => (
+                      <li key={idx} className="flex items-start">
+                        <div className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 mr-2 flex-shrink-0" />
+                        <span className="font-medium whitespace-pre-wrap">{prize}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </Card>
+          </div>
 
         <div className="space-y-8">
           <section>
@@ -235,6 +364,35 @@ export default function PromoDetail() {
               </ul>
             </section>
           )}
+          
+          {(promo.howToJoinSteps && promo.howToJoinSteps.length > 0) && (
+            <section className="bg-amber-50 rounded-2xl p-5 border border-amber-100/50 shadow-sm">
+              <h2 className="text-lg font-bold mb-4 flex items-center text-amber-900 tracking-tight">
+                <span className="w-1.5 h-5 bg-amber-400 rounded-full mr-2" />
+                How to Join
+              </h2>
+              <ol className="space-y-3 list-decimal pl-5 marker:text-amber-500 marker:font-bold">
+                {promo.howToJoinSteps.map((step, idx) => (
+                  <li key={idx} className="text-amber-950 text-sm leading-relaxed pl-1">{step}</li>
+                ))}
+              </ol>
+            </section>
+          )}
+
+          {promo.qrCodeData && (
+            <section className="bg-slate-50 rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center">
+              <h2 className="text-sm font-bold mb-2 flex items-center text-slate-700 uppercase tracking-wider">
+                QR Code Data
+              </h2>
+              <div className="p-3 bg-white border border-slate-200 rounded-xl break-all text-xs text-slate-600 font-mono w-full">
+                {promo.qrCodeData.startsWith('http') ? (
+                  <a href={promo.qrCodeData} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">{promo.qrCodeData}</a>
+                ) : (
+                  promo.qrCodeData
+                )}
+              </div>
+            </section>
+          )}
 
           <section>
             <h2 className="text-lg font-bold mb-4 flex items-center text-slate-900 tracking-tight">
@@ -247,6 +405,23 @@ export default function PromoDetail() {
               )) || <li className="text-slate-400 text-sm italic">Check official source for details.</li>}
             </ul>
           </section>
+
+          {promo.sourceUrl && promo.sourceUrl.trim() !== '' && (
+            <section>
+              <h2 className="text-lg font-bold mb-2 flex items-center text-slate-900 tracking-tight">
+                <span className="w-1.5 h-5 bg-slate-400 rounded-full mr-2" />
+                Original Link / Source
+              </h2>
+              <a 
+                href={promo.sourceUrl.startsWith('http') ? promo.sourceUrl : `https://${promo.sourceUrl}`} 
+                target="_blank" 
+                rel="noreferrer"
+                className="text-blue-600 hover:text-blue-800 break-all text-sm font-medium underline underline-offset-2"
+              >
+                {promo.sourceUrl}
+              </a>
+            </section>
+          )}
 
           <section className="bg-teal-50 rounded-3xl p-5 border border-teal-100 shadow-sm">
             <h2 className="text-lg font-bold mb-3 flex items-center text-teal-900 tracking-tight">
@@ -278,12 +453,14 @@ export default function PromoDetail() {
         >
           {hasEntered ? 'Participated!' : 'Mark as Entered'} <CheckCircle size={18} className="ml-2" />
         </Button>
-        <Button 
-          className="h-14 w-14 rounded-xl bg-blue-600 hover:bg-blue-700 shadow-xl shadow-blue-200 font-bold pointer-events-auto p-0"
-          onClick={() => window.open(promo.sourceUrl, '_blank')}
-        >
-          <ExternalLink size={20} />
-        </Button>
+        {promo.sourceUrl && promo.sourceUrl.trim() !== '' && (
+          <Button 
+            className="h-14 w-14 rounded-xl bg-blue-600 hover:bg-blue-700 shadow-xl shadow-blue-200 font-bold pointer-events-auto p-0"
+            onClick={() => window.open(promo.sourceUrl.startsWith('http') ? promo.sourceUrl : `https://${promo.sourceUrl}`, '_blank')}
+          >
+            <ExternalLink size={20} />
+          </Button>
+        )}
       </div>
     </div>
   );

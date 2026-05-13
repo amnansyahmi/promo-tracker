@@ -6,7 +6,7 @@ import { LogOut, LogIn, Shield, User, ChevronRight, Bell, Settings, HelpCircle, 
 import { Link } from 'react-router-dom';
 
 export default function Profile() {
-  const { user, profile, signIn, logout, isAdmin } = useAuth();
+  const { user, profile, signIn, logout, isAdmin, signingIn } = useAuth();
 
   return (
     <div className="max-w-md mx-auto px-4 pt-6 min-h-screen animate-in fade-in duration-300">
@@ -42,8 +42,21 @@ export default function Profile() {
                 <User size={32} />
               </div>
               <h2 className="font-bold text-lg text-slate-900 mb-4 tracking-tight">Welcome to PromoHunter</h2>
-              <Button onClick={signIn} className="w-full bg-blue-600 rounded-xl py-6 font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-colors">
-                <LogIn size={18} className="mr-2" /> Sign in with Google
+              <Button 
+                onClick={signIn} 
+                disabled={signingIn}
+                className="w-full bg-blue-600 rounded-xl py-6 font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-colors"
+              >
+                {signingIn ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                    Signing in...
+                  </>
+                ) : (
+                  <>
+                    <LogIn size={18} className="mr-2" /> Sign in with Google
+                  </>
+                )}
               </Button>
             </div>
           )}
@@ -51,8 +64,8 @@ export default function Profile() {
       </Card>
 
       <div className="space-y-2 mb-10">
-        <MenuButton icon={Bell} label="Notifications" />
-        <MenuButton icon={Settings} label="Preferences" />
+        <Link to="/notifications"><MenuButton icon={Bell} label="Notifications" /></Link>
+        <Link to="/preferences"><MenuButton icon={Settings} label="Preferences" /></Link>
         <MenuButton icon={HelpCircle} label="Help Center" />
         <MenuButton icon={FileText} label="Terms & Privacy" />
       </div>
@@ -63,14 +76,12 @@ export default function Profile() {
           <div className="grid grid-cols-2 gap-4">
             <Link to="/saved">
               <Card className="bg-white border border-slate-100 shadow-sm rounded-2xl p-4 text-center hover:border-blue-200 transition-colors">
-                <p className="text-2xl font-bold text-blue-600 mb-1">0</p>
                 <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Saved</p>
               </Card>
             </Link>
-            <Link to="/submit">
+            <Link to="/history">
               <Card className="bg-white border border-slate-100 shadow-sm rounded-2xl p-4 text-center hover:border-slate-300 transition-colors">
-                <p className="text-2xl font-bold text-slate-800 mb-1">0</p>
-                <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Submissions</p>
+                <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Submissions / History</p>
               </Card>
             </Link>
           </div>

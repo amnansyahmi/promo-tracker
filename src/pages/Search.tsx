@@ -7,14 +7,72 @@ import { PromoCard } from '@/components/PromoCard';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Search as SearchIcon, SlidersHorizontal, Loader2 } from 'lucide-react';
+import { Search as SearchIcon, SlidersHorizontal, Loader2, Sparkles, Globe } from 'lucide-react';
+import { discoverPromosAI } from '@/lib/gemini';
+import { toast } from 'sonner';
+import { savePromoWithDedup } from '@/lib/promoService';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function Search() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [promos, setPromos] = useState<Promo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isWebSearching, setIsWebSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || '');
   const categoryFilter = searchParams.get('category');
+  const { user } = useAuth();
+
+  const handleWebSearch = async () => {
+    if (!searchTerm) {
+      toast.error("Enter a search term to search the web!");
+      return;
+    }
+    
+    setIsWebSearching(true);
+    try {
+      const results = await discoverPromosAI(`${searchTerm} contests promotions deals Malaysia 2026`);
+      if (results && results.length > 0) {
+        let addedCount = 0;
+        let updatedCount = 0;
+        
+        for (const item of results) {
+          const result = await savePromoWithDedup({
+            title: item.title || searchTerm,
+            brandName: item.brand_name || 'Web Result',
+            promoType: item.promo_type || 'Unknown',
+            category: item.category || 'Other',
+            country: 'Malaysia',
+            sourceUrl: item.source_url || '',
+            endDate: item.end_date || null,
+            rewardTitle: item.reward_title || '',
+            trustLevel: 'Verified',
+            status: Status.APPROVED,
+          }, user?.uid || 'anonymous');
+          
+          if (!result.exists) addedCount++;
+          else if (result.updated) updatedCount++;
+        }
+        
+        if (addedCount > 0) {
+          toast.success(`Found and added ${addedCount} new contests from the web!`);
+        } else if (updatedCount > 0) {
+          toast.success(`Updated ${updatedCount} existing contests with new web details!`);
+        } else {
+          toast.info("Found contests on the web, but they were already in our database.");
+        }
+        
+        // Refresh local results by letting the search term be re-applied
+        setSearchTerm(searchTerm); 
+      } else {
+        toast.info("AI couldn't find any additional new contests on the web right now.");
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to perform web search.");
+    } finally {
+      setIsWebSearching(false);
+    }
+  };
 
   useEffect(() => {
     const fetchPromos = async () => {
@@ -108,16 +166,51 @@ export default function Search() {
           <Loader2 className="animate-spin mb-2 text-blue-500" />
           <p>Finding the best deals...</p>
         </div>
-      ) : promos.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4 pb-20">
-          {promos.map(promo => (
-            <PromoCard key={promo.id} promo={promo} />
-          ))}
-        </div>
       ) : (
-        <div className="text-center py-20">
-          <p className="text-slate-400 italic">No promotions found for your search.</p>
-        </div>
+        <>
+          {promos.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4 pb-10">
+              {promos.map(promo => (
+                <PromoCard key={promo.id} promo={promo} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 px-6 bg-slate-50 border border-dotted border-slate-300 rounded-3xl mb-10">
+               <div className="bg-white w-12 h-12 rounded-full shadow-sm flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                 <Sparkles className="text-blue-500" size={24} />
+               </div>
+               <p className="text-slate-900 font-bold mb-1">No local results for "{searchTerm}"</p>
+               <p className="text-slate-500 text-xs mb-6">But don't worry! I can search the entire web for active contests matching your query.</p>
+               
+               <Button 
+                onClick={handleWebSearch}
+                disabled={isWebSearching}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl py-6"
+               >
+                 {isWebSearching ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Globe className="mr-2 h-4 w-4" />}
+                 {isWebSearching ? "Searching Web..." : "Deep Search Web via AI"}
+               </Button>
+            </div>
+          )}
+
+          {promos.length > 0 && (
+            <div className="mb-20">
+              <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl flex flex-col items-center text-center">
+                <Sparkles className="text-blue-600 mb-2" size={20} />
+                <p className="text-[11px] text-blue-700 font-medium mb-3">Want more results? Use AI to find newest contests on Google.</p>
+                <Button 
+                  onClick={handleWebSearch}
+                  disabled={isWebSearching}
+                  variant="outline"
+                  className="bg-white border-blue-200 text-blue-600 font-bold rounded-xl w-full"
+                >
+                  {isWebSearching ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Globe className="mr-2 h-4 w-4" />}
+                  Deeper Web Search
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

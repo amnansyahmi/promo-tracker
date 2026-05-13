@@ -8,6 +8,7 @@ interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
+  signingIn: boolean;
   signIn: () => Promise<void>;
   logout: () => Promise<void>;
   isAdmin: boolean;
@@ -19,6 +20,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [signingIn, setSigningIn] = useState(false);
 
   useEffect(() => {
     return onAuthStateChanged(auth, async (user) => {
@@ -47,8 +49,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signIn = async () => {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+    if (signingIn) return;
+    setSigningIn(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      await signInWithPopup(auth, provider);
+    } catch (error: any) {
+      console.error("Sign-in failed:", error);
+      if (error.code === 'auth/unauthorized-domain') {
+        alert(`Authentication failed: This domain is not authorized.\n\nPlease add ${window.location.hostname} to your Firebase Console under Authentication > Settings > Authorized domains.`);
+      } else if (error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
+        // Silently ignore or show a small toast, but don't show a big alert
+        console.log("Sign-in cancelled or popup closed.");
+      } else {
+        alert("Sign-in failed: " + error.message);
+      }
+    } finally {
+      setSigningIn(false);
+    }
   };
 
   const logout = async () => {
@@ -58,7 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isAdmin = profile?.role === UserRole.ADMIN;
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signIn, logout, isAdmin }}>
+    <AuthContext.Provider value={{ user, profile, loading, signingIn, signIn, logout, isAdmin }}>
       {children}
     </AuthContext.Provider>
   );

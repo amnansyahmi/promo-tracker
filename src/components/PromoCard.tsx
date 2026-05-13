@@ -21,7 +21,7 @@ export function PromoCard({ promo, isEntered }: PromoCardProps) {
       <div className="relative rounded-2xl overflow-hidden shadow-lg h-48 group">
         <div className="absolute inset-0 z-0 bg-slate-200">
           <img 
-            src={promo.imageUrl || 'https://placehold.co/600x400/1e293b/ffffff?text=' + encodeURIComponent(promo.brandName)} 
+            src={(promo.imageUrls && promo.imageUrls.length > 0) ? promo.imageUrls[0] : (promo.imageUrl || 'https://placehold.co/600x400/1e293b/ffffff?text=' + encodeURIComponent(promo.brandName))} 
             alt={promo.title}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           />

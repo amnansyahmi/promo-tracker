@@ -11,6 +11,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 
 import { discoverPromosAI } from '@/lib/gemini';
+import { savePromoWithDedup } from '@/lib/promoService';
 
 export default function Home() {
   const [latestPromos, setLatestPromos] = useState<Promo[]>([]);
@@ -26,7 +27,7 @@ export default function Home() {
       const data = await discoverPromosAI('Latest promotions and food deals malaysia 2026');
       if (data && data.length > 0) {
         for (const promo of data) {
-          const promoData: Partial<Promo> = {
+          const promoData: any = {
             title: promo.title || 'Unknown Title',
             brandName: promo.brand_name || 'Unknown Brand',
             promoType: promo.promo_type || 'Unknown',
@@ -34,17 +35,12 @@ export default function Home() {
             country: 'Malaysia',
             sourceUrl: promo.source_url || '',
             endDate: promo.end_date || null,
-            rewardTitle: promo.reward_title,
-            howToJoinSteps: promo.how_to_join_steps || [],
-            termsAndConditionsSummary: promo.terms_and_conditions_summary || [],
+            rewardTitle: promo.reward_title || '',
             trustLevel: 'Verified',
             costLevel: promo.cost_level || 'Unknown',
-            tipsToWin: [],
             status: Status.APPROVED,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
           };
-          await addDoc(collection(db, 'promos'), promoData);
+          await savePromoWithDedup(promoData, user?.uid || 'anonymous');
         }
         window.location.reload();
       } else {
